@@ -1,0 +1,59 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    restart: always
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=${ENVIRONMENT_DEV}
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - patrol_net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Tuan@2002' -Q 'SELECT 1' || exit 1",
+        ]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./Backend/Dockerfile
+    container_name: backend
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT_DEV}
+    # depends_on:
+    #   sqlserver:
+    #     condition: service_healthy
+    networks:
+      - patrol_net
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./Frontend/Dockerfile
+    container_name: nginx
+    ports:
+      - "8080:80"
+      - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+    networks:
+      - patrol_net
+
+volumes:
+  sqlserver-data:
+
+networks:
+  patrol_net:
+    driver: bridge
